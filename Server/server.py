@@ -119,6 +119,11 @@ def get_model3D_bytes_SSH(promt: str):
         print("Error:", str(e))
         return result
 
+@app.get("/")
+async def root():
+    return {"message": "Welcome to the 3D model generation server!"}
+
+
 @app.post("/create-model3D")
 async def create_model3D(request: PromtRequest):
     prompt = request.prompt
