@@ -5,6 +5,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
+import base64
 
 # Load the .env file
 load_dotenv()
@@ -85,18 +86,16 @@ def get_model3D_bytes_SSH(promt: str):
         client.connect(hostname, username=username, password=password)
 
         # promt = request.prompt
-        command = f"""cd /raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1/ && source ~/miniconda3/etc/profile.d/conda.sh && conda activate esroom && python main.py --text_prompt "{promt}" --save_folder ./outputs/test/ --max_faces_num 90000 --do_texture_mapping --do_render"""
+        # command = f"""cd /raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1/ && source ~/miniconda3/etc/profile.d/conda.sh && conda activate esroom && python main.py --text_prompt "{promt}" --save_folder ./outputs/test/ --max_faces_num 90000 --do_texture_mapping --do_render"""
         
-        stdin, stdout, stderr = client.exec_command(command)
-        print("Output:", stdout.read().decode())
-        print("Errors:", stderr.read().decode())
+        # stdin, stdout, stderr = client.exec_command(command)
+        # print("Output:", stdout.read().decode())
+        # print("Errors:", stderr.read().decode())
 
         model_file = remote_folder + "mesh.obj"
         mtl_file = remote_folder + "texture.mtl"
         texture_file = remote_folder + "texture.png"
 
-        print("Model file:", model_file)
-        print("MTL file:", mtl_file)
         print("Texture file:", texture_file)
 
         sftp_client = client.open_sftp()
@@ -110,7 +109,9 @@ def get_model3D_bytes_SSH(promt: str):
         with sftp_client.file(texture_file, mode="rb") as file:
             texture_byte = file.read()
 
-        result.texture = texture_byte.decode("latin1")
+        result.texture = base64.b64encode(texture_byte)
+
+        print("Texture file after encode:", result.texture)
 
         sftp_client.close()
         client.close()
