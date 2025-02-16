@@ -20,7 +20,7 @@ RUN /bin/bash -c "source ~/.bashrc && conda activate hunyuan3d-1 && \
 
 # Run environment setup script
 RUN /bin/bash -c "source ~/.bashrc && conda activate hunyuan3d-1 && \
-    bash env_install.sh"
+    bash /home/src/env_install.sh"
 
 # Expose the required port
 EXPOSE 8000
