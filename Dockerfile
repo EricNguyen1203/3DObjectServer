@@ -17,8 +17,10 @@ RUN /bin/bash -c "source ~/.bashrc && conda activate hunyuan3d-1 && \
 # Install other dependencies from requirements.txt
 RUN /bin/bash -c "source ~/.bashrc && conda activate hunyuan3d-1 && \
     pip install --no-cache-dir -r /home/src/requirements.txt"
-
-# Run environment setup script
+# Anaconda Cloud
+RUN /bin/bash -c "source ~/.bashrc && conda activate hunyuan3d-1 && \
+    conda install pytorch3d -c pytorch3d
+    # Run environment setup script
 RUN /bin/bash -c "source ~/.bashrc && conda activate hunyuan3d-1 && \
     bash /home/src/env_install.sh"
 
