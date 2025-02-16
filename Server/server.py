@@ -169,7 +169,7 @@ async def root():
 async def create_model3D(request: PromtRequest):
     prompt = request.prompt
     model_name = request.model_name
-    result = create_model3D_SSH(prompt, model_name)
+    result = create_model3D(prompt, model_name)
 
     if result.get("error"):
         raise HTTPException(status_code=500, detail=result["error"])
