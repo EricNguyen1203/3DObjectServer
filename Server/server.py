@@ -105,16 +105,21 @@ def create_model3D_command(prompt: str, model_name: str):
                f"    --text_prompt \"{prompt}\" --save_folder ./outputs/{model_name}/ --max_faces_num 90000 --do_texture_mapping\n"
                f"    ")
     try:
-        process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                                   executable="/bin/bash")
+        process = subprocess.Popen(
+            command,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            executable="/bin/bash"  # Run in local bash shell
+        )
         output, error = process.communicate()
 
         print("Output:", output)
         print("Errors:", error)
 
-        return {"output": output, "error": error}  # Return output for further debugging if needed
+        return {"output": output, "error": error}
     except Exception as e:
-        raise e
         return {"error": e}
 
 
