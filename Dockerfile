@@ -3,6 +3,7 @@ FROM python:3.12
 # Install the application dependencies
 COPY ./Server /home/src
 RUN apt-get update && apt-get install -y libgl1
+RUN sudo chmod -R a+rwx /usr/local/lib/python3.12/site-packages/pymatting
 RUN pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 RUN bash /home/src/env_install.sh
 RUN pip install --no-cache-dir -r /home/src/requirements.txt
