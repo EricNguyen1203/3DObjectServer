@@ -4,3 +4,4 @@ pip3 install SentencePiece accelerate trimesh PyMCubes xatlas libigl ninja gradi
 pip3 install git+https://github.com/facebookresearch/pytorch3d@stable
 pip3 install git+https://github.com/NVlabs/nvdiffrast
 pip3 install open3d
+pip3 install onnxruntime
