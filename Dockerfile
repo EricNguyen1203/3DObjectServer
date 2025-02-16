@@ -3,9 +3,7 @@ FROM python:3.12
 # Install the application dependencies
 COPY ./Server /home/src
 RUN pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-RUN pip3 install -r /home/src/gen3d/requirements.txt --index-url https://download.pytorch.org/whl/cu121
-RUN pip3 install git+https://github.com/facebookresearch/pytorch3d@stable
-RUN pip3 install git+https://github.com/NVlabs/nvdiffrast
+RUN bash /home/src/env_install.sh
 RUN pip install --no-cache-dir -r /home/src/requirements.txt
 
 EXPOSE 8000
