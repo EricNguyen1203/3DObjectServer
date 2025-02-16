@@ -13,17 +13,15 @@ RUN conda create -n hunyuan3d-1 python=3.12 -y && \
 # Install PyTorch inside the Conda environment
 RUN /bin/bash -c "source ~/.bashrc && conda activate hunyuan3d-1 && \
     pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121"
-
+# Install PyTorch3D inside Conda environment
+RUN /bin/bash -c "source ~/.bashrc && conda activate hunyuan3d-1 && \
+    conda install -y pytorch3d -c pytorch3d"
+# Run environment setup script
+RUN /bin/bash -c "source ~/.bashrc && conda activate hunyuan3d-1 && \
+    bash /home/src/env_install.sh"
 # Install other dependencies from requirements.txt
 RUN /bin/bash -c "source ~/.bashrc && conda activate hunyuan3d-1 && \
     pip install --no-cache-dir -r /home/src/requirements.txt"
-# Anaconda Cloud
-RUN /bin/bash -c "source ~/.bashrc && conda activate hunyuan3d-1 && \
-    conda install pytorch3d -c pytorch3d
-    # Run environment setup script
-RUN /bin/bash -c "source ~/.bashrc && conda activate hunyuan3d-1 && \
-    bash /home/src/env_install.sh"
-
 # Expose the required port
 EXPOSE 8000
 
