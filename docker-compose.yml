@@ -3,5 +3,5 @@ services:
     build: .
     ports:
       - "8000:8000"
-volumes:
-  - /raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1/
+    volumes:
+      - /raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1:/raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1
