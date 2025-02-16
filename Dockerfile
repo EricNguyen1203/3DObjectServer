@@ -19,8 +19,7 @@ RUN /bin/bash -c "source ~/.bashrc && conda activate hunyuan3d-1 && \
 # Install other dependencies from requirements.txt
 RUN /bin/bash -c "source ~/.bashrc && conda activate hunyuan3d-1 && \
     pip install --no-cache-dir -r /home/src/requirements.txt" \
-RUN /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && \
-    conda activate hunyuan3d-1 && \
+RUN /bin/bash -c "source ~/.bashrc && conda activate hunyuan3d-1 && \
     git clone --depth 1 https://github.com/facebookresearch/pytorch3d.git /home/src/pytorch3d && \
     pip install -e /home/src/pytorch3d"
 # Expose the required port
