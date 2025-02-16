@@ -97,11 +97,9 @@ def create_model3D_SSH(promt: str, model_name: str):
 
 
 def create_model3D_command(prompt: str, model_name: str):
-    command = (f"\n"
-               f"    cd /raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1/ &&\n"
-               f"    python main.py \n"
-               f"    --text_prompt \"{prompt}\" --save_folder ./outputs/{model_name}/ --max_faces_num 90000 --do_texture_mapping\n"
-               f"    ")
+    command = (f"    cd /raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1/ &&\n"
+               f"    python main.py --text_prompt \"{prompt}\" --save_folder ./outputs/{model_name}/ --max_faces_num 90000 --do_texture_mapping"
+               )
     try:
         process = subprocess.Popen(
             command,
