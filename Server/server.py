@@ -96,7 +96,7 @@ def create_model3D_SSH(promt: str, model_name: str):
         return {"error": str(e)}
 
 
-def create_model3D(prompt: str, model_name: str):
+def create_model3D_command(prompt: str, model_name: str):
     command = (f"\n"
                f"    cd /raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1/ &&\n"
                f"    source ~/miniconda3/etc/profile.d/conda.sh &&\n"
@@ -169,7 +169,7 @@ async def root():
 async def create_model3D(request: PromtRequest):
     prompt = request.prompt
     model_name = request.model_name
-    result = create_model3D(prompt, model_name)
+    result = create_model3D_command(prompt, model_name)
 
     if result.get("error"):
         raise HTTPException(status_code=500, detail=result["error"])
