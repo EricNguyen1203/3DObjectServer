@@ -11,7 +11,7 @@ COPY environment.yml /home/src/environment.yml
 
 # Set default shell to use Conda
 SHELL ["/bin/bash", "-c"]
-
+RUN conda install -y python=3.12
 # Create the Conda environment
 RUN conda env create -f /home/src/environment.yml && conda clean --all -y
 
