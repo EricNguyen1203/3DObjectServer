@@ -14,10 +14,9 @@ SHELL ["/bin/bash", "-c"]
 # Create the Conda environment
 
 RUN conda env create -f /home/src/environment.yml && conda clean --all -y
-
 # Ensure Conda environment activation is persistent
 RUN echo "conda activate esroom" >> /etc/profile.d/conda.sh
-
+RUN conda install pytorch=1.13.0 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia
 # Install additional Python dependencies inside the Conda environment
 RUN conda run -n esroom pip install --no-cache-dir -r /home/src/requirements.txt
 
