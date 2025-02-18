@@ -13,14 +13,15 @@ RUN conda create -n hunyuan3d-1 python=3.9 && \
 # Initialize Conda (for shell environment setup)
 RUN echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc
 
-# Install the correct pip version and Torch with CUDA support
-RUN /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && conda activate hunyuan3d-1 && pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121"
+COPY /home/hvtham/miniconda3/envs/esroom/lib/python3.9/site-packages/ /opt/conda/envs/hunyuan3d-1/lib/python3.9/site-packages
+## Install the correct pip version and Torch with CUDA support
+#RUN /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && conda activate hunyuan3d-1 && pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121"
 
 # Step 2: Install required Python packages from requirements.txt
 RUN /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && conda activate hunyuan3d-1 && pip install --no-cache-dir -r /home/src/requirements.txt"
 
-# Step 3: Run environment installation script
-RUN /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && conda activate hunyuan3d-1 && bash /home/src/env_install.sh"
+## Step 3: Run environment installation script
+#RUN /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && conda activate hunyuan3d-1 && bash /home/src/env_install.sh"
 
 
 # Expose the required port
