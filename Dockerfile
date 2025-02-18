@@ -16,8 +16,7 @@ RUN conda run -n hunyuan3d-1 bash -c "pip install torch torchvision --index-url 
 
 RUN conda run -n hunyuan3d-1 pip install --no-cache-dir -r /home/src/requirements.txt
 # Step 3: Copy the environment installation script and run it
-COPY env_install.sh /home/src/env_install.sh
-RUN bash /home/src/env_install.sh
+RUN conda run -n hunyuan3d-1 bash /home/src/env_install.sh
 
 # Expose the required port
 EXPOSE 8000
