@@ -5,4 +5,3 @@ services:
       - "8000:8000"
     volumes:
       - /raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1:/raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1
-      - /home/hvtham/miniconda3/envs/esroom/lib/python3.9/site-packages:/raid/site-packages
