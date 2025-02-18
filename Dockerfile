@@ -13,7 +13,7 @@ RUN conda create -n hunyuan3d-1 python=3.9 && \
 # Initialize Conda (for shell environment setup)
 RUN echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc
 
-COPY /home/hvtham/miniconda3/envs/esroom/lib/python3.9/site-packages/ /opt/conda/envs/hunyuan3d-1/lib/python3.9/site-packages
+RUN cp -r /raid/site-packages /opt/conda/envs/hunyuan3d-1/lib/python3.9/site-packages
 ## Install the correct pip version and Torch with CUDA support
 #RUN /bin/bash -c "source /opt/conda/etc/profile.d/conda.sh && conda activate hunyuan3d-1 && pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121"
 
