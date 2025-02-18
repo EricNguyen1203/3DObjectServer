@@ -8,7 +8,6 @@ SHELL ["/bin/bash", "-c"]
 
 COPY environment.yml /home/src/environment.yml
 RUN conda env create -f /home/src/environment.yml
-RUN echo "conda activate esroom" >> ~/.bashrc
 RUN pip install --no-cache-dir -r /home/src/requirements.txt
 # Expose the required port
 EXPOSE 8000
