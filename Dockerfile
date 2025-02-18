@@ -11,12 +11,12 @@ COPY environment.yml /home/src/environment.yml
 
 # Set default shell to use Conda
 SHELL ["/bin/bash", "-c"]
-RUN conda install -y python=3.12
 # Create the Conda environment
+
 RUN conda env create -f /home/src/environment.yml && conda clean --all -y
 
 # Ensure Conda environment activation is persistent
-RUN echo "source activate esroom" >> /etc/profile.d/conda.sh
+RUN echo "conda activate esroom" >> /etc/profile.d/conda.sh
 
 # Install additional Python dependencies inside the Conda environment
 RUN conda run -n esroom pip install --no-cache-dir -r /home/src/requirements.txt
