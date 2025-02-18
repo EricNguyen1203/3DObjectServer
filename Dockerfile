@@ -6,19 +6,18 @@ WORKDIR /home/src
 # Copy application source code
 COPY ./Server /home/src
 
-# Copy environment configuration files
-COPY environment.yml /home/src/environment.yml
+# Step 1: Create Conda environment with Python version
+RUN conda create -n hunyuan3d-1 python=3.9 && \
+    conda activate hunyuan3d-1 && \
+    conda clean --all -y
 
-# Set default shell to use Conda
-SHELL ["/bin/bash", "-c"]
-# Create the Conda environment
+# Install the correct pip version and Torch with CUDA support
+RUN conda run -n hunyuan3d-1 bash -c "pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121"
 
-RUN conda env create -f /home/src/environment.yml && conda clean --all -y
-# Ensure Conda environment activation is persistent
-RUN echo "conda activate esroom" >> /etc/profile.d/conda.sh
-RUN conda install pytorch=1.13.0 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia
-# Install additional Python dependencies inside the Conda environment
-RUN conda run -n esroom pip install --no-cache-dir -r /home/src/requirements.txt
+RUN conda run -n hunyuan3d-1 pip install --no-cache-dir -r /home/src/requirements.txt
+# Step 3: Copy the environment installation script and run it
+COPY env_install.sh /home/src/env_install.sh
+RUN bash /home/src/env_install.sh
 
 # Expose the required port
 EXPOSE 8000
@@ -32,5 +31,5 @@ USER thesis2025
 # Set working directory
 WORKDIR /home/src
 
-# Run the application with Conda environment activated
-CMD ["bash", "-c", "source /etc/profile.d/conda.sh && conda activate esroom && uvicorn server:app --host 0.0.0.0 --port 8000"]
+# Run the application
+CMD ["bash", "-c", "source /etc/profile.d/conda.sh && conda activate hunyuan3d-1 && uvicorn server:app --host 0.0.0.0 --port 8000"]
