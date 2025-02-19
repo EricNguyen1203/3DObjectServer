@@ -20,6 +20,10 @@ async def create_zip(folder_root_path: str, files: list[str]) -> io.BytesIO:
 
 
 def check_files(folder_path):
+    if not os.path.isdir(folder_path):
+        print("Folder does not exist.")
+        return False
+
     required_files = {"mesh.obj", "texture.png", "texture.mtl"}
     existing_files = set(os.listdir(folder_path))
 

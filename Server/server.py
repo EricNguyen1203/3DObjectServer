@@ -115,7 +115,8 @@ def create_model3D_command(prompt: str, model_name: str, max_face_nums: int):
             executable="/bin/bash"  # Run in local bash shell
         )
         output, error = process.communicate()
-
+        if utils.check_files(os.path.join(folder_root, "outputs", model_name)): #check if success avoid 500 response but gen success
+            return {"output": output}
 
         print("Errors:", error)
 
