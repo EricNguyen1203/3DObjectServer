@@ -191,10 +191,10 @@ async def create_model3D(request: PromptRequest):
 
 @app.post("/get-model3D-zip")
 async def get_model3D_zip(request: GetZipModelRequest):
-    zip = utils.create_zip(os.path.join(remote_folder, "outputs", request.model_name), ["mesh.obj", "texture.png", "texture.mtl"])  # Zip for optimize transferring
-    if not zip:
+    zip_buffer = await utils.create_zip(os.path.join(remote_folder, "outputs", request.model_name), ["mesh.obj", "texture.png", "texture.mtl"])  # Zip for optimize transferring
+    if not zip_buffer:
         return HTTPException(status_code=400, detail="No model gen yet")
-    return StreamingResponse(zip)
+    return StreamingResponse(zip_buffer)
 
 
 @app.post("/get-model3D-bytes")
