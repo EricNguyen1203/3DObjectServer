@@ -96,10 +96,14 @@ def create_model3D_SSH(promt: str, model_name: str):
         return {"error": str(e)}
 
 
-def create_model3D_command(prompt: str, model_name: str):
-    command = (f"    cd /raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1/ &&\n"
-               f"    python main.py --text_prompt \"{prompt}\" --save_folder ./outputs/{model_name}/ --max_faces_num 90000 --do_texture_mapping"
+def create_model3D_command(prompt: str, model_name: str, max_face_nums: int):
+    folder_root = "/raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1/"
+    if utils.check_files(os.path.join(folder_root, "outputs", model_name)):
+        return {"output": "already gen this object"}
+    command = (f"    cd {folder_root} &&\n"
+               f"    python main.py --text_prompt \"{prompt}\" --save_folder ./outputs/{model_name}/ --max_faces_num {max_face_nums} --do_texture_mapping"
                )
+    #TODO: handle when have database, conflict model_name
     try:
         process = subprocess.Popen(
             command,
@@ -111,7 +115,7 @@ def create_model3D_command(prompt: str, model_name: str):
         )
         output, error = process.communicate()
 
-        print("Output:", output)
+
         print("Errors:", error)
 
         return {"output": output, "error": error}
@@ -170,7 +174,8 @@ async def root():
 async def create_model3D(request: PromtRequest):
     prompt = request.prompt
     model_name = request.model_name
-    result = create_model3D_command(prompt, model_name)
+    max_face_nums = request.max_face_nums
+    result = create_model3D_command(prompt, model_name, max_face_nums)
 
     if result.get("error"):
         raise HTTPException(status_code=500, detail=result["error"])

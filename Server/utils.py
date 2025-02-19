@@ -17,3 +17,16 @@ async def create_zip(folder_root_path: str, files: list[str]) -> io.BytesIO:
 
     zip_buffer.seek(0)
     return zip_buffer
+
+
+def check_files(folder_path):
+    required_files = {"mesh.obj", "texture.png", "texture.mtl"}
+    existing_files = set(os.listdir(folder_path))
+
+    missing_files = required_files - existing_files
+    if not missing_files:
+        print("All required files are present.")
+        return True
+    else:
+        print("Missing files:", ", ".join(missing_files))
+        return False
