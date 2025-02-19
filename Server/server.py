@@ -28,6 +28,9 @@ class PromptRequest(BaseModel):
     model_name: str
     max_face_nums: int
 
+class GetZipModelRequest(BaseModel):
+    model_name: str
+
 
 class Model3D:
     model: bytes
@@ -187,11 +190,11 @@ async def create_model3D(request: PromptRequest):
 
 
 @app.post("/get-model3D-zip")
-async def get_model3D_zip(model_name):
-    zip = utils.create_zip(remote_folder, ["mesh.obj", "texture.png", "texture.mtl"])  # Zip for optimize transferring
+async def get_model3D_zip(request: GetZipModelRequest):
+    zip = utils.create_zip(os.path.join(remote_folder, "outputs", request.model_name), ["mesh.obj", "texture.png", "texture.mtl"])  # Zip for optimize transferring
     if not zip:
         return HTTPException(status_code=400, detail="No model gen yet")
-    return StreamingResponse(zip);
+    return StreamingResponse(zip)
 
 
 @app.post("/get-model3D-bytes")
