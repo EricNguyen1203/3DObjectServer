@@ -5,6 +5,8 @@ import aiofiles
 
 
 async def create_zip(folder_root_path: str, files: list[str]) -> io.BytesIO:
+    if not check_files(folder_root_path):
+        return None
     zip_buffer = io.BytesIO()
 
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:

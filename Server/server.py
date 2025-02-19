@@ -104,7 +104,7 @@ def create_model3D_command(prompt: str, model_name: str, max_face_nums: int):
     command = (f"    cd {folder_root} &&\n"
                f"    python main.py --text_prompt \"{prompt}\" --save_folder ./outputs/{model_name}/ --max_faces_num {max_face_nums} --do_texture_mapping"
                )
-    #TODO: handle when have database, conflict model_name
+    # TODO: handle when have database, conflict model_name
     try:
         process = subprocess.Popen(
             command,
@@ -115,7 +115,8 @@ def create_model3D_command(prompt: str, model_name: str, max_face_nums: int):
             executable="/bin/bash"  # Run in local bash shell
         )
         output, error = process.communicate()
-        if utils.check_files(os.path.join(folder_root, "outputs", model_name)): #check if success avoid 500 response but gen success
+        if utils.check_files(os.path.join(folder_root, "outputs",
+                                          model_name)):  # check if success avoid 500 response but gen success
             return {"output": output}
 
         print("Errors:", error)
@@ -183,6 +184,14 @@ async def create_model3D(request: PromptRequest):
         raise HTTPException(status_code=500, detail=result["error"])
 
     return result
+
+
+@app.post("/get-model3D-zip")
+async def get_model3D_zip(model_name):
+    zip = utils.create_zip(remote_folder, ["mesh.obj", "texture.png", "texture.mtl"])  # Zip for optimize transferring
+    if not zip:
+        return HTTPException(status_code=400, detail="No model gen yet")
+    return StreamingResponse(zip);
 
 
 @app.post("/get-model3D-bytes")
