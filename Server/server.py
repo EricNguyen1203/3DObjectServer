@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 import base64
 
+from fastapi.middleware.cors import CORSMiddleware
+
 from models import ModelInfo
 import utils
 
@@ -21,6 +23,13 @@ MTL_FILE_NAME = "texture.mtl"
 load_dotenv()
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost", "http://127.0.0.1"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class PromptRequest(BaseModel):
