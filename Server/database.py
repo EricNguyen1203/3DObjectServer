@@ -43,6 +43,10 @@ class MongoDBCollections:
         collection = self.get_collection(collection_name)
         return collection.update_one(query, {"$set": update_data})
 
+    def update_or_insert_one(self, collection_name, query, update_data):
+        collection = self.get_collection(collection_name)
+        return collection.update_one(query, {"$set": update_data}, upsert=True)
+
     def update_many(self, collection_name, query, update_data):
         """Update multiple documents."""
         collection = self.get_collection(collection_name)

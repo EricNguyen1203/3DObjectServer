@@ -1,11 +1,14 @@
 import json
 import subprocess
+from typing import Annotated
 
 import paramiko
+from bson import ObjectId
+from bson.json_util import dumps
 from scp import SCPClient
 import os
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response, JSONResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import base64
@@ -16,7 +19,9 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from Server import utils
 from Server.controllers.llm_controller import LLMJsonParser
 from Server.database import MongoDBCollections
-from Server.models import ModelInfo
+from Server.models import *
+from packages.fastapi import Header
+from packages.starlette import status
 
 TEXTURE_FILE_NAME = "texture.png"
 MODEL_FILE_NAME = "models.obj"
@@ -40,27 +45,7 @@ app.add_middleware(
 )
 
 
-class PromptRequest(BaseModel):
-    prompt: str
-    model_name: str
-    max_face_nums: int
 
-class GetZipModelRequest(BaseModel):
-    model_name: str
-
-
-class Model3D:
-    model: bytes
-    texture: str
-    mtl: bytes
-
-    def __init__(self, model: bytes, texture: str, mtl: bytes):
-        self.model = model
-        self.texture = texture
-        self.mtl = mtl
-
-class LLMJsonParseRequest(BaseModel):
-    prompt: str
 
 # Server details
 hostname = os.getenv("SERVER_HOST")
@@ -118,8 +103,24 @@ def create_model3D_SSH(promt: str, model_name: str):
         print("Error:", str(e))
         return {"error": str(e)}
 
+def insert_model3D(model_name, prompt, path, model_info) -> bool:
+    mongo_collection = MongoDBCollections(db_name=root_db)
+    if not mongo_collection:
+        return False
+    model_id = mongo_collection.insert_one(
+        collection_name="model3D",
+        data={
+            "model_name": model_name,
+            "prompt": prompt,
+            "path": path,
+            "model_info": model_info
+        })
+    if model_id is not None:
+        print(f"inserted {model_id}")
+        return True
+    return False
 
-def create_model3D_command(prompt: str, model_name: str, max_face_nums: int, desc: ModelInfo):
+def create_model3D_command(prompt: str, model_name: str, desc: ModelInfo):
     folder_root = "/raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1/"
     count=0
     query={
@@ -128,37 +129,23 @@ def create_model3D_command(prompt: str, model_name: str, max_face_nums: int, des
     }
     mongo_collection = MongoDBCollections(db_name=root_db)
     if not mongo_collection:
-        return {"output": "no database connection"}
+        return JSONResponse(status_code=500, content={"output": "no database connection"})
 
-    count = len(mongo_collection.find_all("model3D", query={
-        "model_name": model_name,
-    }))
+    count = len(mongo_collection.find_all("model3D", query=query))
     print(f"creating model {query}")
 
     if utils.check_model_existed(os.path.join(folder_root, "outputs", f"{model_name}_{count}")):
         mongo_collection = MongoDBCollections(db_name=root_db)
-        if len(mongo_collection.find_all("model3D", query=query)) > 0:
-            return {"output": "already gen this object"}
+        if count == 0: #conflict data from server
+            insert_model3D(model_name, prompt, os.path.join(folder_root, "outputs", f"{model_name}_{count}"), desc.to_dict())
+        return {"output": "already gen this object"}
 
     count = count + 1
 
-    model_id = mongo_collection.insert_one(
-        collection_name="model3D",
-        data={
-            "model_name": model_name,
-            "prompt": prompt,
-            "path": os.path.join(folder_root, "outputs", model_name),
-            "max_face_num": max_face_nums,
-        })
-    if model_id is not None:
-        print(f"inserted {model_id}")
-    else:
-        return {"output": "insert collection failed"}
 
     command = (f"    cd {folder_root} &&\n"
-               f"    python main.py --text_prompt \"{prompt}\" --save_folder ./outputs/{model_name}_{count}/ --max_faces_num {max_face_nums} --do_texture_mapping"
+               f"    python main.py --text_prompt \"{prompt}\" --save_folder ./outputs/{model_name}_{count}/ --max_faces_num {desc.max_face_num} --do_texture_mapping"
                )
-
 
     try:
         process = subprocess.Popen(
@@ -172,7 +159,12 @@ def create_model3D_command(prompt: str, model_name: str, max_face_nums: int, des
         output, error = process.communicate()
         if utils.check_model_existed(os.path.join(folder_root, "outputs",
                                           f"{model_name}_{count}")):  # check if success avoid 500 response but gen success
-
+            operation = insert_model3D(model_name, prompt,
+                                       os.path.join(folder_root, "outputs", f"{model_name}_{count}"), desc.to_dict())
+            if not operation:
+                return JSONResponse(status_code=500, content={
+                    "error": "no database"
+                })
             return {"output": output}
 
         print("Errors:", error)
@@ -245,7 +237,7 @@ async def create_model3D(request: PromptRequest):
         model_info.color = res_object.get("color") if res_object else model_info.color
         model_info.material = res_object.get("material") if res_object else model_info.material
 
-        result = create_model3D_command(prompt, model_name, max_face_nums, model_info)
+        result = create_model3D_command(prompt, model_name, model_info)
 
         if result.get("error"):
             raise HTTPException(status_code=500, detail=result["error"])
@@ -257,10 +249,23 @@ async def create_model3D(request: PromptRequest):
 
 @app.post("/get-model3D-zip")
 async def get_model3D_zip(request: GetZipModelRequest):
-    zip_buffer = await utils.create_zip(os.path.join(remote_folder, "outputs", request.model_name), ["mesh.obj", "texture.png", "texture.mtl"])  # Zip for optimize transferring
-    if not zip_buffer:
-        return HTTPException(status_code=400, detail="No model gen yet")
-    return StreamingResponse(zip_buffer)
+    try:
+        mongo_collection = MongoDBCollections(db_name=root_db)
+        if mongo_collection is None:
+            return JSONResponse(status_code=500, content={"output": "no database connection"})
+
+        model = mongo_collection.find_one(collection_name="model3D", query={
+            "_id": ObjectId(request.model_id)
+        })
+        if model is None:
+            return JSONResponse(status_code=400, content={"output": "no model found"})
+
+        zip_buffer = await utils.create_zip(model.get("path"), ["mesh.obj", "texture.png", "texture.mtl"])  # Zip for optimize transferring
+        if not zip_buffer:
+            return HTTPException(status_code=400, detail="No model gen yet")
+        return StreamingResponse(zip_buffer)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/json-parse")
 async def get_model_desc(request: LLMJsonParseRequest):
@@ -272,7 +277,55 @@ async def get_model_desc(request: LLMJsonParseRequest):
 
     except Exception as e:
         print(f"Error in Parse: {e}")
-        raise HTTPException(status_code=500, detail=e)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/save_obj_to_room")
+async def save_obj_to_room(request: SaveObjRequest, param_query_type: str = Header(None)):
+    try:
+        mongo_collection = MongoDBCollections(db_name=root_db)
+        if mongo_collection is None:
+            return JSONResponse(status_code=500, content={"error": "no database"})
+        data = None
+        if param_query_type == 0: #id
+            data = mongo_collection.find_one("model3D", query={
+                "_id": ObjectId(request.model_param)
+            })
+        else:
+            data = mongo_collection.find_one("model3D", query={
+                "model_name": request.model_param
+            })
+        if data is None:
+            return JSONResponse(status_code=500, content={"error": "no model"})
+
+        mongo_collection.update_or_insert_one(collection_name="room", query={"room_name": request.room_name}, update_data={
+            "room_name": request.room_name,
+            "obj_id": data.get("_id"),
+            "parameters": request.room_params,
+        })
+
+        return JSONResponse(status_code=200, content={
+            "output": f"created room obj success {data.get('_id')}",
+        })
+
+
+    except Exception as e:
+        print("error: ", str(e))
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/load_all_obj_in_room")
+async def load_all_obj_in_room(room_name: str):
+    try:
+        mongo_collection = MongoDBCollections(db_name=root_db)
+        if mongo_collection is None:
+            return JSONResponse(status_code=500, content={"error": "no database"})
+        entities = list(mongo_collection.find_all(collection_name="room", query={"room_name": room_name}))
+        return Response(dumps(entities), media_type="application/json")  # ✅ Serialize with BSON
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 
 # @app.post("/get-model3D-bytes")
 # async def get_model3D_bytes(request: PromptRequest):
