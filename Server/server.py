@@ -1,29 +1,51 @@
+import json
+import subprocess
+from typing import Annotated
+
 import paramiko
+from bson import ObjectId
+from bson.json_util import dumps
 from scp import SCPClient
 import os
-import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse, Response, JSONResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import base64
 
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+
+from Server import utils
+from Server.controllers.llm_controller import LLMJsonParser
+from Server.database import MongoDBCollections
+from Server.models import *
+from packages.fastapi import Header
+from packages.starlette import status
+
+TEXTURE_FILE_NAME = "texture.png"
+MODEL_FILE_NAME = "models.obj"
+MTL_FILE_NAME = "texture.mtl"
 # Load the .env file
 load_dotenv()
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost", "http://127.0.0.1"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-class PromtRequest(BaseModel):
-    prompt: str
 
-class Model3D():
-    model: bytes
-    texture: str
-    mtl: bytes
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["localhost", "127.0.0.1"],
+)
 
-    def __init__(self, model: bytes, texture: str, mtl: bytes):
-        self.model = model
-        self.texture = texture
-        self.mtl = mtl
+
+
 
 # Server details
 hostname = os.getenv("SERVER_HOST")
@@ -31,17 +53,20 @@ username = os.getenv("SERVER_USERNAME")
 password = os.getenv("SERVER_PASSWORD")
 
 remote_folder = os.getenv("REMOTE_PATH")
-local_folder =  os.getenv("LOCAL_PATH") 
+local_folder = os.getenv("LOCAL_PATH")
+root_db = "thesis2025"
 
 def create_scp_client(ssh_client):
     return SCPClient(ssh_client.get_transport())
+
 
 def file_to_byte_array(file_path):
     with open(file_path, "rb") as file:
         byte_array = file.read()
     return byte_array
 
-def create_model3D_SSH(promt: str):
+
+def create_model3D_SSH(promt: str, model_name: str):
     try:
         output = None
         error = None
@@ -57,19 +82,20 @@ def create_model3D_SSH(promt: str):
 
         # if not os.path.exists(local_folder):
         #     os.makedirs(local_folder)
-        
+
         # activate the virtual environment name myenv
-        command = f"""cd /raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1/ && source ~/miniconda3/etc/profile.d/conda.sh && conda activate esroom && python main.py --text_prompt "{promt}" --save_folder ./outputs/test/ --max_faces_num 90000 --do_texture_mapping --do_render"""
-        
+        command = f"""cd /raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1/ && source ~/miniconda3/etc/profile.d/conda.sh && conda activate esroom && python main.py --text_prompt "{promt}" --save_folder ./outputs/{model_name}/ --max_faces_num 90000 --do_texture_mapping"""
+
         stdin, stdout, stderr = client.exec_command(command)
         output = stdout.read().decode()
         error = stderr.read().decode()
         print("Output:", output)
         print("Errors:", error)
-        
-        obj_file = remote_folder + "mesh.obj"
 
-        scp.get(obj_file, local_folder)
+        # not copy
+        # obj_file = remote_folder + "mesh.obj"
+        #
+        # scp.get(obj_file, local_folder)
 
         client.close()
         return {"output": output, "error": error}
@@ -77,48 +103,118 @@ def create_model3D_SSH(promt: str):
         print("Error:", str(e))
         return {"error": str(e)}
 
-def get_model3D_bytes_SSH(promt: str):  
-    result = Model3D(None, None, None)
+def insert_model3D(model_name, prompt, path, model_info) -> bool:
+    mongo_collection = MongoDBCollections(db_name=root_db)
+    if not mongo_collection:
+        return False
+    model_id = mongo_collection.insert_one(
+        collection_name="model3D",
+        data={
+            "model_name": model_name,
+            "prompt": prompt,
+            "path": path,
+            "model_info": model_info
+        })
+    if model_id is not None:
+        print(f"inserted {model_id}")
+        return True
+    return False
+
+def create_model3D_command(prompt: str, model_name: str, desc: ModelInfo):
+    folder_root = "/raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1/"
+    count=0
+    query={
+                "model_name": model_name,
+                "model_info": desc.to_json()
+    }
+    mongo_collection = MongoDBCollections(db_name=root_db)
+    if not mongo_collection:
+        return JSONResponse(status_code=500, content={"output": "no database connection"})
+
+    count = len(mongo_collection.find_all("model3D", query=query))
+    print(f"creating model {query}")
+
+    if utils.check_model_existed(os.path.join(folder_root, "outputs", f"{model_name}_{count}")):
+        mongo_collection = MongoDBCollections(db_name=root_db)
+        if count == 0: #conflict data from server
+            insert_model3D(model_name, prompt, os.path.join(folder_root, "outputs", f"{model_name}_{count}"), desc.to_dict())
+        return {"output": "already gen this object"}
+
+    count = count + 1
+
+
+    command = (f"    cd {folder_root} &&\n"
+               f"    python main.py --text_prompt \"{prompt}\" --save_folder ./outputs/{model_name}_{count}/ --max_faces_num {desc.max_face_num} --do_texture_mapping"
+               )
 
     try:
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(hostname, username=username, password=password)
+        process = subprocess.Popen(
+            command,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            executable="/bin/bash"  # Run in local bash shell
+        )
+        output, error = process.communicate()
+        if utils.check_model_existed(os.path.join(folder_root, "outputs",
+                                          f"{model_name}_{count}")):  # check if success avoid 500 response but gen success
+            operation = insert_model3D(model_name, prompt,
+                                       os.path.join(folder_root, "outputs", f"{model_name}_{count}"), desc.to_dict())
+            if not operation:
+                return JSONResponse(status_code=500, content={
+                    "error": "no database"
+                })
+            return {"output": output}
 
-        # promt = request.prompt
-        # command = f"""cd /raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1/ && source ~/miniconda3/etc/profile.d/conda.sh && conda activate esroom && python main.py --text_prompt "{promt}" --save_folder ./outputs/test/ --max_faces_num 90000 --do_texture_mapping --do_render"""
-        
-        # stdin, stdout, stderr = client.exec_command(command)
-        # print("Output:", stdout.read().decode())
-        # print("Errors:", stderr.read().decode())
+        print("Errors:", error)
 
-        model_file = remote_folder + "mesh.obj"
-        mtl_file = remote_folder + "texture.mtl"
-        texture_file = remote_folder + "texture.png"
-
-        print("Texture file:", texture_file)
-
-        sftp_client = client.open_sftp()
-
-        with sftp_client.file(model_file, mode="rb") as file:
-            result.model = file.read()
-
-        with sftp_client.file(mtl_file, mode="rb") as file:
-            result.mtl = file.read()
-
-        with sftp_client.file(texture_file, mode="rb") as file:
-            texture_byte = file.read()
-
-        result.texture = base64.b64encode(texture_byte)
-
-        print("Texture file after encode:", result.texture)
-
-        sftp_client.close()
-        client.close()
-        return result
+        return {"output": output, "error": error}
     except Exception as e:
-        print("Error:", str(e))
-        return result
+        return {"error": e}
+
+#
+# def get_model3D_bytes_SSH(promt: str):
+#     result = Model3D(None, None, None)
+#
+#     try:
+#         client = paramiko.SSHClient()
+#         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+#         client.connect(hostname, username=username, password=password)
+#
+#         # promt = request.prompt
+#         # command = f"""cd /raid/hvtham/Thesis-Triet-Thanh-k21/Hunyuan3D-1/ && source ~/miniconda3/etc/profile.d/conda.sh && conda activate esroom && python main.py --text_prompt "{promt}" --save_folder ./outputs/test/ --max_faces_num 90000 --do_texture_mapping --do_render"""
+#
+#         # stdin, stdout, stderr = client.exec_command(command)
+#         # print("Output:", stdout.read().decode())
+#         # print("Errors:", stderr.read().decode())
+#
+#         model_file = remote_folder + "mesh.obj"
+#         mtl_file = remote_folder + "texture.mtl"
+#         texture_file = remote_folder + "texture.png"
+#
+#         print("Texture file:", texture_file)
+#
+#         sftp_client = client.open_sftp()
+#
+#         with sftp_client.file(model_file, mode="rb") as file:
+#             result.model = file.read()
+#
+#         with sftp_client.file(mtl_file, mode="rb") as file:
+#             result.mtl = file.read()
+#
+#         with sftp_client.file(texture_file, mode="rb") as file:
+#             texture_byte = file.read()
+#
+#         result.texture = base64.b64encode(texture_byte)
+#
+#         sftp_client.close()
+#         client.close()
+#         return result
+#     except Exception as e:
+#         print("Error:", str(e))
+#         return result
+
 
 @app.get("/")
 async def root():
@@ -126,32 +222,124 @@ async def root():
 
 
 @app.post("/create-model3D")
-async def create_model3D(request: PromtRequest):
+async def create_model3D(request: PromptRequest):
     prompt = request.prompt
+    try:
+        llm = LLMJsonParser()
+        res = llm.json_parse(prompt)
+        res_object = json.loads(res) if res is not None else None
+        model_name = res_object.get("model_name") if res_object else None
+        max_face_nums = res_object.get("max_face_num") if res_object else 10000
+        # Init model info
+        model_info = ModelInfo()
+        model_info.max_face_num = res_object.get("max_face_num") if res_object else model_info.max_face_num
+        model_info.size = res_object.get("size") if res_object else model_info.size
+        model_info.color = res_object.get("color") if res_object else model_info.color
+        model_info.material = res_object.get("material") if res_object else model_info.material
 
-    result = create_model3D_SSH(prompt)
+        result = create_model3D_command(prompt, model_name, model_info)
 
-    if result.get("error"):
-        raise HTTPException(status_code=500, detail=result["error"])
-    
-    return result
+        if result.get("error"):
+            raise HTTPException(status_code=500, detail=result["error"])
 
-@app.post("/get-model3D-bytes")
-async def get_model3D_bytes(request: PromtRequest):
-    prompt = request.prompt
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"error": str(e)})
 
-    result = get_model3D_bytes_SSH(request)
 
-    if not result.model:
-        raise HTTPException(status_code=204, detail="No model found")
-    
-    if not result.texture:
-        raise HTTPException(status_code=204, detail="No texture found")
-    
-    if not result.mtl:
-        raise HTTPException(status_code=204, detail="No mtl found")
-    
-    return result
+@app.post("/get-model3D-zip")
+async def get_model3D_zip(request: GetZipModelRequest):
+    try:
+        mongo_collection = MongoDBCollections(db_name=root_db)
+        if mongo_collection is None:
+            return JSONResponse(status_code=500, content={"output": "no database connection"})
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+        model = mongo_collection.find_one(collection_name="model3D", query={
+            "_id": ObjectId(request.model_id)
+        })
+        if model is None:
+            return JSONResponse(status_code=400, content={"output": "no model found"})
+
+        zip_buffer = await utils.create_zip(model.get("path"), ["mesh.obj", "texture.png", "texture.mtl"])  # Zip for optimize transferring
+        if not zip_buffer:
+            return HTTPException(status_code=400, detail="No model gen yet")
+        return StreamingResponse(zip_buffer)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/json-parse")
+async def get_model_desc(request: LLMJsonParseRequest):
+    prompt=request.prompt
+    llm = LLMJsonParser()
+    try:
+        res = llm.json_parse(prompt)
+        return {"output": res}
+
+    except Exception as e:
+        print(f"Error in Parse: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/save_obj_to_room")
+async def save_obj_to_room(request: SaveObjRequest, param_query_type: str = Header(None)):
+    try:
+        mongo_collection = MongoDBCollections(db_name=root_db)
+        if mongo_collection is None:
+            return JSONResponse(status_code=500, content={"error": "no database"})
+        data = None
+        if param_query_type == 0: #id
+            data = mongo_collection.find_one("model3D", query={
+                "_id": ObjectId(request.model_param)
+            })
+        else:
+            data = mongo_collection.find_one("model3D", query={
+                "model_name": request.model_param
+            })
+        if data is None:
+            return JSONResponse(status_code=500, content={"error": "no model"})
+
+        mongo_collection.update_or_insert_one(collection_name="room", query={"room_name": request.room_name}, update_data={
+            "room_name": request.room_name,
+            "obj_id": data.get("_id"),
+            "parameters": request.room_params,
+        })
+
+        return JSONResponse(status_code=200, content={
+            "output": f"created room obj success {data.get('_id')}",
+        })
+
+
+    except Exception as e:
+        print("error: ", str(e))
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/load_all_obj_in_room")
+async def load_all_obj_in_room(room_name: str):
+    try:
+        mongo_collection = MongoDBCollections(db_name=root_db)
+        if mongo_collection is None:
+            return JSONResponse(status_code=500, content={"error": "no database"})
+        entities = list(mongo_collection.find_all(collection_name="room", query={"room_name": room_name}))
+        return Response(dumps(entities), media_type="application/json")  # ✅ Serialize with BSON
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+
+# @app.post("/get-model3D-bytes")
+# async def get_model3D_bytes(request: PromptRequest):
+#     prompt = request.prompt
+#
+#     result = get_model3D_bytes_SSH(request)
+#
+#     if not result.model:
+#         raise HTTPException(status_code=204, detail="No model found")
+#
+#     if not result.texture:
+#         raise HTTPException(status_code=204, detail="No texture found")
+#
+#     if not result.mtl:
+#         raise HTTPException(status_code=204, detail="No mtl found")
+#
+#     return result
