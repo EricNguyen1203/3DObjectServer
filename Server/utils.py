@@ -4,8 +4,8 @@ import zipfile
 import aiofiles
 
 
-async def create_zip(folder_root_path: str, files: list[str]) -> io.BytesIO:
-    if not check_files(folder_root_path):
+async def create_zip(folder_root_path: str, files: list[str]) -> io.BytesIO or None:
+    if not check_model_existed(folder_root_path):
         return None
     zip_buffer = io.BytesIO()
 
@@ -21,7 +21,7 @@ async def create_zip(folder_root_path: str, files: list[str]) -> io.BytesIO:
     return zip_buffer
 
 
-def check_files(folder_path):
+def check_model_existed(folder_path):
     if not os.path.isdir(folder_path):
         print("Folder does not exist.")
         return False
