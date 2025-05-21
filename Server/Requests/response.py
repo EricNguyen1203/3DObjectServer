@@ -1,3 +1,6 @@
+from fastapi.responses import JSONResponse
+
+
 class BaseReponse(JSONResponse):
     def __init__(self, result: bool, message: str, data: list, status_code: int):
         content = {

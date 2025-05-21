@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 
-from Server.env_setup import EnvUtil
+from env_setup import EnvUtil
 
 
 class MongoDBCollections:

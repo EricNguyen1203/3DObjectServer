@@ -2,6 +2,13 @@ import json
 
 from pydantic import BaseModel
 
+class BaseEntity:
+    def to_json(self) -> str:
+        """Convert the object to a JSON string."""
+        return json.dumps(self.__dict__)  # Convert object attributes to JSON
+    def to_dict(self) -> dict:
+        return self.__dict__
+
 
 class ModelInfo:
     def __int__(self):

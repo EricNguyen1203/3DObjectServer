@@ -5,4 +5,4 @@ from pydantic import BaseModel
 
 class Create3dModelRequest(BaseModel):
     title: str
-    prompt: List[str]
+    prompts: List[str]
