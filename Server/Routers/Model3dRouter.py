@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 import grpc
 from Requests.create_model_request import Create3dModelRequest
@@ -41,6 +41,17 @@ def stream_create_model_responses(prompts: List[str], title: str):
                 "status": response.status,
                 "paths": list(response.path),
             }) + "\n"
+            
+def get_model_3d_grpc(path: str):
+    with grpc.insecure_channel("localhost:50090") as channel:
+        stub = model3d_pb2_grpc.GenModel3dServiceStub(channel)
+
+        request = model3d_pb2.Model3dGetRequest(
+            path = path
+        )
+
+        for response in stub.GetModel3d(request):
+            yield response.data
 
 @router.post("/create-3d-models")
 async def create_3d_model(request: Create3dModelRequest):
@@ -48,3 +59,11 @@ async def create_3d_model(request: Create3dModelRequest):
         return StreamingResponse(stream_create_model_responses(prompts=request.prompts, title=request.title))
     except Exception as e:
         return BaseReponse(content={"result": "failed"}, status_code=500);    
+
+@router.get("/get-3d-model")
+async def get_3d_model(path: str):
+    try:
+        return StreamingResponse(get_model_3d_grpc(path))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"gRPC error: {e.details()}")
+    
