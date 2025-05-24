@@ -1,9 +1,6 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
-from typing import List
-from Routers import Model3dRouter
+from Routers import Model3dRouter, Image360Router
 
 app = FastAPI()
 app.include_router(Model3dRouter.router)
-
-
+app.include_router(Image360Router.router)
