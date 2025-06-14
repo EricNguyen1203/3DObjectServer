@@ -44,6 +44,11 @@ class Image360ServiceStub(object):
                 request_serializer=image__360__pb2.GetImage360Request.SerializeToString,
                 response_deserializer=image__360__pb2.GetImage360Response.FromString,
                 _registered_method=True)
+        self.GetImagesZip = channel.unary_stream(
+                '/Image360Service/GetImagesZip',
+                request_serializer=image__360__pb2.GetImagesZipRequest.SerializeToString,
+                response_deserializer=image__360__pb2.GetImagesZipResponse.FromString,
+                _registered_method=True)
 
 
 class Image360ServiceServicer(object):
@@ -61,6 +66,12 @@ class Image360ServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetImagesZip(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_Image360ServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -73,6 +84,11 @@ def add_Image360ServiceServicer_to_server(servicer, server):
                     servicer.Get360Image,
                     request_deserializer=image__360__pb2.GetImage360Request.FromString,
                     response_serializer=image__360__pb2.GetImage360Response.SerializeToString,
+            ),
+            'GetImagesZip': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetImagesZip,
+                    request_deserializer=image__360__pb2.GetImagesZipRequest.FromString,
+                    response_serializer=image__360__pb2.GetImagesZipResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -129,6 +145,33 @@ class Image360Service(object):
             '/Image360Service/Get360Image',
             image__360__pb2.GetImage360Request.SerializeToString,
             image__360__pb2.GetImage360Response.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetImagesZip(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/Image360Service/GetImagesZip',
+            image__360__pb2.GetImagesZipRequest.SerializeToString,
+            image__360__pb2.GetImagesZipResponse.FromString,
             options,
             channel_credentials,
             insecure,

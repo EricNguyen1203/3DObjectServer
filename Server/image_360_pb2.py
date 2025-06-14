@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0fimage_360.proto\"6\n\x15\x43reateImage360Request\x12\r\n\x05title\x18\x01 \x01(\t\x12\x0e\n\x06prompt\x18\x02 \x01(\t\"H\n\x16\x43reateImage360Response\x12\x0e\n\x06status\x18\x01 \x01(\x05\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x10\n\x08progress\x18\x03 \x01(\x05\"\"\n\x12GetImage360Request\x12\x0c\n\x04path\x18\x01 \x01(\t\"E\n\x13GetImage360Response\x12\x0e\n\x06status\x18\x01 \x01(\x05\x12\x10\n\x08progress\x18\x02 \x01(\x05\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c\x32\x96\x01\n\x0fImage360Service\x12\x45\n\x0e\x43reate360Image\x12\x16.CreateImage360Request\x1a\x17.CreateImage360Response\"\x00\x30\x01\x12<\n\x0bGet360Image\x12\x13.GetImage360Request\x1a\x14.GetImage360Response\"\x00\x30\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0fimage_360.proto\"6\n\x15\x43reateImage360Request\x12\r\n\x05title\x18\x01 \x01(\t\x12\x0e\n\x06prompt\x18\x02 \x01(\t\"H\n\x16\x43reateImage360Response\x12\x0e\n\x06status\x18\x01 \x01(\x05\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x10\n\x08progress\x18\x03 \x01(\x05\"\"\n\x12GetImage360Request\x12\x0c\n\x04path\x18\x01 \x01(\t\"E\n\x13GetImage360Response\x12\x0e\n\x06status\x18\x01 \x01(\x05\x12\x10\n\x08progress\x18\x02 \x01(\x05\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c\"$\n\x13GetImagesZipRequest\x12\r\n\x05paths\x18\x01 \x03(\t\"$\n\x14GetImagesZipResponse\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\x32\xd7\x01\n\x0fImage360Service\x12\x45\n\x0e\x43reate360Image\x12\x16.CreateImage360Request\x1a\x17.CreateImage360Response\"\x00\x30\x01\x12<\n\x0bGet360Image\x12\x13.GetImage360Request\x1a\x14.GetImage360Response\"\x00\x30\x01\x12?\n\x0cGetImagesZip\x12\x14.GetImagesZipRequest\x1a\x15.GetImagesZipResponse\"\x00\x30\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -39,6 +39,10 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_GETIMAGE360REQUEST']._serialized_end=183
   _globals['_GETIMAGE360RESPONSE']._serialized_start=185
   _globals['_GETIMAGE360RESPONSE']._serialized_end=254
-  _globals['_IMAGE360SERVICE']._serialized_start=257
-  _globals['_IMAGE360SERVICE']._serialized_end=407
+  _globals['_GETIMAGESZIPREQUEST']._serialized_start=256
+  _globals['_GETIMAGESZIPREQUEST']._serialized_end=292
+  _globals['_GETIMAGESZIPRESPONSE']._serialized_start=294
+  _globals['_GETIMAGESZIPRESPONSE']._serialized_end=330
+  _globals['_IMAGE360SERVICE']._serialized_start=333
+  _globals['_IMAGE360SERVICE']._serialized_end=548
 # @@protoc_insertion_point(module_scope)
