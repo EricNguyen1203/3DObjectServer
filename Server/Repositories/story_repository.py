@@ -2,20 +2,20 @@ from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
 from Repositories.base_repository import BaseRepository
-from Models.room_entity import RoomEntity
+from Models.story_entity import StoryEntity
 
-class RoomRepository(BaseRepository):
+class StoryRepository(BaseRepository):
     def __init__(self):
         super().__init__()  
-        self._collection_name = "room"
+        self._collection_name = "story"
         self._collection_instance = self._mongo_instance.get_collection(collection_name=self._collection_name)
     
-    def insert_one(self, data: RoomEntity):
+    def insert_one(self, data: StoryEntity):
         result = self._collection_instance.insert_one(data.to_dict())
         print("Inserted ID:", result.inserted_id)
         return result.inserted_id
     
-    def insert_many(self, data: List[RoomEntity]):
+    def insert_many(self, data: List[StoryEntity]):
         inserted_list = [entity.to_dict() for entity in data ]
         result = self._collection_instance.insert_many(inserted_list).inserted_ids
         print("Inserted IDs:", result)    
@@ -60,4 +60,3 @@ class RoomRepository(BaseRepository):
         return results       List of dictionary representations of documents, empty list if none found
         """
         cursor = self._collection_instance.find(query)
-     

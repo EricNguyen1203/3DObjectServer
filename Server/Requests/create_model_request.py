@@ -1,8 +1,7 @@
-from typing import List
-from fastapi.responses import JSONResponse
+from typing import List, Tuple
 from pydantic import BaseModel
-
 
 class Create3dModelRequest(BaseModel):
     title: str
-    prompts: List[str]
+    story: str
+    room_id: str

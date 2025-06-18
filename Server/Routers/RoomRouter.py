@@ -7,29 +7,27 @@ router = APIRouter(prefix="/room", tags=["room"])
 repository = RoomRepository()
 
 
-@router.post("/room")
+@router.post("/get-or-create-room")
 async def create_room(request: CreateRoomRequest):
     try:
         entity = RoomEntity(name=request.room_name)
         old_room = repository.load_one(entity.to_dict())
-        if old_room is None:
-            return JSONResponse(status_code=400, content={
-                "message": "duplicated room",
-                "code": 3001
-            })
+        if old_room is not None:
+            return JSONResponse(
+                status_code=200,
+                content={"message": "Success", "code": 0, "data": old_room["_id"]},
+            )
         id = repository.insert_one(entity)
-        if id is not None or id == "":
-            return JSONResponse(status_code=500, content={
-                "message": "duplicated room",
-                "code": 3005
-            })
-            
-        return JSONResponse(status_code=200, content={
-                "message": "Success",
-                "code": 0,
-                "data": id
-            })
-            
+        if id is None or id == "":
+            return JSONResponse(
+                status_code=500,
+                content={"message": "duplicated room", "code": 3005, "data": ""},
+            )
+
+        return JSONResponse(
+            status_code=200, content={"message": "Success", "code": 0, "data": str(id)}
+        )
+
     except Exception as e:
         return JSONResponse(status_code=500, content={
             "message": str(e),

@@ -19,7 +19,7 @@ router = APIRouter(prefix="/image360", tags=["image360"])
 repository = Image360Repository()
 
 
-def streaming_image_360(prompt: str, title: str):
+def streaming_image_360(prompt: str, title: str, room_id: str, index: int):
     with grpc.insecure_channel("localhost:50081") as channel:
         stub = image_360_pb2_grpc.Image360ServiceStub(channel)
 
@@ -32,7 +32,11 @@ def streaming_image_360(prompt: str, title: str):
             if response.status == 2:
                 id = repository.insert_one(
                     Image360Entity(
-                        title=request.title, prompt=request.prompt, path=response.path
+                        title=request.title,
+                        prompt=request.prompt,
+                        path=response.path,
+                        room_id=room_id,
+                        index=index,
                     )
                 )
 
@@ -80,8 +84,11 @@ async def create_image_360(req: CreateImage360Request):
     try:
         # Connect to gRPC server
         result = repository.load_one(
-            Image360Entity(title=req.title, prompt=req.prompt).to_dict()
+            Image360Entity(
+                title=f"{req.title}_{req.index}", prompt=req.prompt, room_id=req.room_id, index=req.index
+            ).to_dict()
         )
+        print(result)
         if result is not None:
             return StreamingResponse(
                 json.dumps(
@@ -95,7 +102,12 @@ async def create_image_360(req: CreateImage360Request):
                 media_type="application/json",
             )
         return StreamingResponse(
-            streaming_image_360(prompt=req.prompt, title=req.title),
+            streaming_image_360(
+                prompt=req.prompt,
+                title=f"{req.title}_{req.index}",
+                room_id=req.room_id,
+                index=req.index,
+            ),
             media_type="application/json",
         )
 

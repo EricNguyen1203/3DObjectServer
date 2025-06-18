@@ -1,5 +1,13 @@
+import re
+from typing import List, Optional, Tuple
 from openai import OpenAI
 from env_setup import EnvUtil
+
+
+class ModelInfo:
+    def __init__(self, name, desc):
+        self.name = name
+        self.desc = desc
 
 
 class LLMJsonParser:
@@ -34,7 +42,7 @@ class LLMJsonParser:
         ]
         self.model = "deepseek/deepseek-chat-v3-0324:free"
 
-    def json_parse(self, prompt: str) -> str or None:
+    def json_parse(self, prompt: str) -> Optional[str]:
         messages = [
             {
                 "role": "user",
@@ -90,7 +98,7 @@ class LLMJsonParser:
 
         return None  # Return None if there is an error
 
-    def json_parse_story(self, title: str, prompt: str) -> list[str]:
+    def json_parse_story(self, title: str, prompt: str) -> List[str]:
         pages = [p.strip() for p in prompt.split("\n") if p.strip()]
 
         combined_story = "\n".join([f"{i+1}. {page}" for i, page in enumerate(pages)])
@@ -136,5 +144,64 @@ class LLMJsonParser:
 
         except Exception as e:
             print(f"Error generating scenes: {e}")
+
+        return []
+
+    def json_parse_characters(
+        self, title: str, story: str
+    ) -> List[List[Tuple[str, str]]]:
+        pages = [p.strip() for p in story.split("\n") if p.strip()]
+        combined_story = "\n".join([f"{i+1}. {page}" for i, page in enumerate(pages)])
+
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "You are the best character detach and character description AI in the world.\n"
+                            "Generate a simple, vivid, and short description of ALL characters for each character in each sentence.\n"
+                            "Only describe full body description, emotion and activity.\n"
+                            "Respond with the list of characters and descriptions for each sentence in format [`character_name_1`-`character_description_1`, `character_name_2`-`character_description_2`] "
+                            "(example: [narrator-a short boy with a hat wants to communicate with everyone in the classroom, mom_or_dad-A tall, warm parent speaking calmly with another adult, their posture relaxed but attentive]). Numbered 1 to N, matching the order of the input.\n"
+                            "\n"
+                            f"title: {title}\n"
+                            f"stories:\n{combined_story}\n"
+                            "\n"
+                            "Output:"
+                        ),
+                    }
+                ],
+            }
+        ]
+
+        try:
+            completion = self.client.chat.completions.create(
+                model=self.model, messages=messages
+            )
+
+            if completion and completion.choices:
+                response = completion.choices[0].message.content.strip()
+                print("Model Response:", response)
+
+                pattern = r"\d+\.\s*\[([^\]]+)\]"
+                matches = re.findall(pattern, response)
+
+                result: List[List[Tuple[str, str]]] = []
+
+                for match in matches:
+                    group: List[Tuple[str, str]] = []
+                    items = [item.strip() for item in match.split(",")]
+                    for item in items:
+                        if "-" in item:
+                            name, desc = item.split("-", 1)
+                            group.append((name.strip(), desc.strip()))
+                    result.append(group)
+
+                return result
+
+        except Exception as e:
+            print(f"Error generating characters: {e}")
 
         return []
