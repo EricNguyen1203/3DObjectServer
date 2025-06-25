@@ -7,6 +7,10 @@ import model3d_pb2_grpc
 import model3d_pb2 
 from typing import Dict, List, Tuple
 from Repositories.model_3d_repository import Model3dRepository, Model3dEntity
+from Repositories.character_desc_repository import (
+    CharacterDescriptionRepository,
+    CharacterDescriptionEntity,
+)
 from Controllers.llm_controller import LLMJsonParser
 import json
 
@@ -15,54 +19,79 @@ router = APIRouter(
     tags=["model3d"]
 )
 repository = Model3dRepository()
+character_desc_repository = CharacterDescriptionRepository()
 
 
 def stream_create_model_responses(
-    character_descs: List[List[Tuple[str, str]]], title: str, room_id: str
+    character_descs: List[Tuple[str, str]], title: str, room_id: str, index: int
 ):
+    paths = []
+    prompts = []
+    character_names = []
+
+    for character_name, prompt in character_descs:
+        entity = repository.load_one(
+            Model3dEntity(
+                title=title,
+                room_id=room_id,
+                character_name=character_name,
+                prompt=prompt,
+                index=index,
+            ).to_dict()
+        )
+        if entity:
+            paths.append(entity["_path"])
+        else:
+            character_names.append(character_name)
+            prompts.append(prompt)
+
     with grpc.insecure_channel("localhost:50090") as channel:
         stub = model3d_pb2_grpc.GenModel3dServiceStub(channel)
-        prompts = []
-        character_names = []
-        number_character_in_scenes = []
-        for characters in character_descs:
-            number_character_in_scenes.append(len(characters))
-            prompts += [desc[1] for desc in characters]
-            character_names += [desc[0] for desc in characters]
-
         request = model3d_pb2.Model3dGenRequest(prompts=prompts, title=title)
-        index = 0
         for response in stub.GenModel3d(request):
             print(f"[{response.stage}] {response.progress}% - {response.message}")
             if response.status == 2:  # Finished
                 entities = []
-                paths = list(response.path)
-
-                for i in range(len(paths)):
-                    if number_character_in_scenes[index] == 0:
-                        index = index + 1
+                res_paths = list(response.path)
+                paths += res_paths
+                for i in range(len(prompts)):
                     entities.append(
                         Model3dEntity(
                             title=title,
                             room_id=room_id,
                             character_name=character_names[i],
                             prompt=prompts[i],
-                            path=paths[i],
+                            path=res_paths[i],
                             index=index,
                         )
                     )
-                    number_character_in_scenes[index] = (
-                        number_character_in_scenes[index] - 1
-                    )
-                repository.insert_many(entities)
 
-            yield json.dumps({
-                "stage": response.stage,
-                "progress": response.progress,
-                "message": response.message,
-                "status": response.status,
-                "paths": list(response.path),
-            }) + "\n"
+                repository.insert_many(entities)
+                yield json.dumps(
+                    {
+                        "stage": response.stage,
+                        "progress": response.progress,
+                        "message": response.message,
+                        "status": response.status,
+                        "entities": repository.load_many(
+                            Model3dEntity(
+                                title=title,
+                                room_id=room_id,
+                                index=index,
+                            ).to_dict()
+                        ),
+                    }
+                ) + "\n"
+            else:
+                yield json.dumps(
+                    {
+                        "stage": response.stage,
+                        "progress": response.progress,
+                        "message": response.message,
+                        "status": response.status,
+                        "entities": [],
+                    }
+                ) + "\n"
 
 
 def get_model_3d_grpc(path: str):
@@ -79,14 +108,33 @@ def get_model_3d_grpc(path: str):
 
 @router.post("/create-3d-models")
 async def create_3d_models(request: Create3dModelRequest):
-    llm = LLMJsonParser()
-    character_descs = llm.json_parse_characters(request.title, request.story)
+
+    content = character_desc_repository.load_one(
+        CharacterDescriptionEntity(
+            title=request.title, room_id=request.room_id, index=request.index
+        ).to_dict()
+    )
+    if content is None:
+        llm = LLMJsonParser()
+        character_descs = llm.json_parse_characters(request.title, request.story)
+        character_desc_repository.insert_one(
+            CharacterDescriptionEntity(
+                title=request.title,
+                room_id=request.room_id,
+                descriptions=character_descs,
+                index=request.index,
+            )
+        )
+    else:
+        character_descs = content["_descriptions"]
+
     try:
         return StreamingResponse(
             stream_create_model_responses(
                 character_descs=character_descs,
                 title=request.title,
                 room_id=request.room_id,
+                index=request.index,
             )
         )
     except Exception as e:

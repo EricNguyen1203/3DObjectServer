@@ -1,3 +1,4 @@
+import ast
 import re
 from typing import List, Optional, Tuple
 from openai import OpenAI
@@ -147,12 +148,7 @@ class LLMJsonParser:
 
         return []
 
-    def json_parse_characters(
-        self, title: str, story: str
-    ) -> List[List[Tuple[str, str]]]:
-        pages = [p.strip() for p in story.split("\n") if p.strip()]
-        combined_story = "\n".join([f"{i+1}. {page}" for i, page in enumerate(pages)])
-
+    def json_parse_characters(self, title: str, story: str) -> List[Tuple[str, str]]:
         messages = [
             {
                 "role": "user",
@@ -163,11 +159,11 @@ class LLMJsonParser:
                             "You are the best character detach and character description AI in the world.\n"
                             "Generate a simple, vivid, and short description of ALL characters for each character in each sentence.\n"
                             "Only describe full body description, emotion and activity.\n"
-                            "Respond with the list of characters and descriptions for each sentence in format [`character_name_1`-`character_description_1`, `character_name_2`-`character_description_2`] "
+                            "Respond with the list of characters `ONLY HUMAN` and descriptions for each sentence in format `character_name_1`-`character_description_1`"
                             "(example: [narrator-a short boy with a hat wants to communicate with everyone in the classroom, mom_or_dad-A tall, warm parent speaking calmly with another adult, their posture relaxed but attentive]). Numbered 1 to N, matching the order of the input.\n"
                             "\n"
                             f"title: {title}\n"
-                            f"stories:\n{combined_story}\n"
+                            f"stories:\n{story}\n"
                             "\n"
                             "Output:"
                         ),
@@ -175,7 +171,6 @@ class LLMJsonParser:
                 ],
             }
         ]
-
         try:
             completion = self.client.chat.completions.create(
                 model=self.model, messages=messages
@@ -185,23 +180,73 @@ class LLMJsonParser:
                 response = completion.choices[0].message.content.strip()
                 print("Model Response:", response)
 
-                pattern = r"\d+\.\s*\[([^\]]+)\]"
+                pattern = r"\d+\.\s*(.+?)-(.+)"
                 matches = re.findall(pattern, response)
 
-                result: List[List[Tuple[str, str]]] = []
-
-                for match in matches:
-                    group: List[Tuple[str, str]] = []
-                    items = [item.strip() for item in match.split(",")]
-                    for item in items:
-                        if "-" in item:
-                            name, desc = item.split("-", 1)
-                            group.append((name.strip(), desc.strip()))
-                    result.append(group)
-
+                result: List[Tuple[str, str]] = []
+                for name, desc in matches:
+                    result.append((name.strip(), desc.strip() + " with foot"))
                 return result
 
         except Exception as e:
             print(f"Error generating characters: {e}")
+
+        return []
+
+    # return list of [(character_name, dialouges)]
+    def json_parse_dialouges(
+        self, title: str, scene_content: str, characters_in_scene: List[str]
+    ) -> List[Tuple[str, List[str]]]:
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "You are the best character dialouge detach AI in the world.\n"
+                            "Detach dialouges of characters for each character in story below.\n"
+                            'Only detach dialouge of character in scene not generate them. Commonly dialouges are in "".\n'
+                            "Respond with the list of tuple 1. character name - `[dialouges_1, dialouges_2]` for the story\n"
+                            "If character does not have any dialouge please ignore it\n"
+                            "(example: [narrator-a short boy with a hat wants to communicate with everyone in the classroom, mom_or_dad-A tall, warm parent speaking calmly with another adult, their posture relaxed but attentive]). Numbered 1 to N, matching the order character name list below.\n"
+                            "\n"
+                            f"title: {title}\n"
+                            f"story:\n{scene_content}\n"
+                            f"character name list: {characters_in_scene}\n"
+                            "\n"
+                            "Output:"
+                        ),
+                    }
+                ],
+            }
+        ]
+        try:
+            completion = self.client.chat.completions.create(
+                model=self.model, messages=messages
+            )
+
+            if completion and completion.choices:
+                response = completion.choices[0].message.content.strip()
+                print("Model Response:", response)
+
+                # Updated regex: captures character and their dialogue list
+                pattern = r"\d+\.\s*(.*?)\s*-\s*(\[[\s\S]*?\])"
+                matches = re.findall(pattern, response)
+
+                result: List[Tuple[str, List[str]]] = []
+                for name, dialogue_str in matches:
+                    try:
+                        dialogues = ast.literal_eval(dialogue_str)
+                        if isinstance(dialogues, list):
+                            result.append(
+                                (name.strip(), [d.strip() for d in dialogues])
+                            )
+                    except Exception as e:
+                        print(f"Failed to parse dialogues for {name}: {e}")
+                return result
+
+        except Exception as e:
+            print(f"Error parsing dialouges: {e}")
 
         return []

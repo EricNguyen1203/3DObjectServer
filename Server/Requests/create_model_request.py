@@ -5,3 +5,4 @@ class Create3dModelRequest(BaseModel):
     title: str
     story: str
     room_id: str
+    index: int
