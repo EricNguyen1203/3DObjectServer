@@ -1,25 +1,27 @@
 import json
 from typing import List
+from bson import ObjectId
 import grpc
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 import image_360_pb2
 import image_360_pb2_grpc
 from Repositories.image360_repository import Image360Repository
+from Repositories.story_repository import StoryRepository
 from Models.image360_entity import Image360Entity
-from Requests.create_image360_request import (
-    CreateImage360Request,
-    CreateScene360Request,
-    GetImagesRequest,
-)
+from Models.story_entity import StoryEntity
+from Requests.create_image360_request import *
 from Controllers.llm_controller import LLMJsonParser
 
 
 router = APIRouter(prefix="/image360", tags=["image360"])
 repository = Image360Repository()
+story_repository = StoryRepository()
 
 
-def streaming_image_360(prompt: str, title: str, room_id: str, index: int):
+def streaming_image_360(
+    prompt: str, title: str, room_id: str, index: int, isUpdate: bool = False
+):
     with grpc.insecure_channel("localhost:50081") as channel:
         stub = image_360_pb2_grpc.Image360ServiceStub(channel)
 
@@ -30,15 +32,25 @@ def streaming_image_360(prompt: str, title: str, room_id: str, index: int):
         final_path = ""
         for response in stub.Create360Image(request):
             if response.status == 2:
-                id = repository.insert_one(
-                    Image360Entity(
-                        title=request.title,
-                        prompt=request.prompt,
-                        path=response.path,
-                        room_id=room_id,
-                        index=index,
+                if isUpdate:
+                    id = repository.update_one(
+                        Image360Entity(
+                            title=request.title,
+                            room_id=room_id,
+                            index=index,
+                        ).to_dict(),
+                        {"$set": {"_prompt": prompt, "_path": response.path}},
                     )
-                )
+                else:
+                    id = repository.insert(
+                        Image360Entity(
+                            title=request.title,
+                            prompt=prompt,
+                            path=response.path,
+                            room_id=room_id,
+                            index=index,
+                        )
+                    )
 
             yield json.dumps(
                 {
@@ -173,3 +185,49 @@ async def get_images(request: GetImagesRequest):
     except Exception as e:
         print(f"Exception: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/regenerate")
+async def regenerate(req: RegenerateImageRequest):
+    try:
+        result = repository.load_one(
+            Image360Entity(
+                title=f"{req.title}_{req.index}",
+                prompt=req.old_prompt,
+                room_id=req.room_id,
+                index=req.index,
+            ).to_dict()
+        )
+        if result is None:
+            return JSONResponse(
+                content={"code": 4, "message": "Could not found scene", "data": None},
+                status_code=400,
+            )
+        story = story_repository.load_one(
+            StoryEntity(
+                title=req.title,
+                room_id=req.room_id,
+            ).to_dict()
+        )
+
+        desc = story["_descriptions"]
+        desc[req.index] = req.new_prompt
+
+        story_repository.update_one(
+            {"_id": ObjectId(story["_id"])}, {"$set": {"_descriptions": desc}}
+        )
+        return StreamingResponse(
+            streaming_image_360(
+                prompt=req.new_prompt,
+                title=f"{req.title}_{req.index}",
+                room_id=req.room_id,
+                index=req.index,
+                isUpdate=True,
+            ),
+            media_type="application/json",
+        )
+
+    except Exception as e:
+        return JSONResponse(
+            content={"code": 5, "message": e, "data": None}, status_code=500
+        )

@@ -16,3 +16,11 @@ class CreateScene360Request(BaseModel):
 
 class GetImagesRequest(BaseModel):
     paths: List[str]
+
+
+class RegenerateImageRequest(BaseModel):
+    title: str
+    old_prompt: str
+    new_prompt: str
+    room_id: str
+    index: int

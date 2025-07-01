@@ -180,11 +180,12 @@ async def get_dialogues(title: str, room_id: str, index: int):
                 },
             )
         llm = LLMJsonParser()
-        character_dialouges = llm.json_parse_dialouges(
+        jsonList = llm.json_parse_dialouges(
             title=title,
             scene_content=story["_story"],
             characters_in_scene=character_names,
         )
+        character_dialouges = [CharacterDialogue(character_name=character_name, dialogues=dialogues) for character_name, dialogues in jsonList]
         if character_dialouges is None:
             return JSONResponse(
                 status_code=500,

@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
+from pymongo import ReturnDocument, UpdateOne
 from database import MongoDBCollections
 from Repositories.base_repository import BaseRepository
 from Models.model_3d_entity import Model3dEntity
@@ -37,11 +38,11 @@ class Model3dRepository(BaseRepository):
         result = self._collection_instance.find_one(query)
         if result is None or len(result) == 0:
             return None
-        
+
         # Convert ObjectId to string for JSON serialization
         if '_id' in result and isinstance(result['_id'], ObjectId):
             result['_id'] = str(result['_id'])
-            
+
         return result
 
     def load_many(self, query: dict) -> List[Dict[str, Any]]:
@@ -55,12 +56,43 @@ class Model3dRepository(BaseRepository):
             List of dictionary representations of documents, empty list if none found
         """
         cursor = self._collection_instance.find(query)
-        
+
         results = list(cursor)
-        
+
         # Convert ObjectId to string for JSON serialization
         for result in results:
             if '_id' in result and isinstance(result['_id'], ObjectId):
                 result['_id'] = str(result['_id'])
-                
+
         return results
+
+    def update_one(
+        self, filter_query: Dict[str, Any], update_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Update a single document in MongoDB
+
+        Args:
+            filter_query: MongoDB query to find the document
+            update_data: Dictionary of fields to update (e.g., {"$set": {"field": "value"}})
+
+        Returns:
+            The updated document as a dictionary, or None if not found
+        """
+        result = self._collection_instance.find_one_and_update(
+            filter_query,
+            update_data,
+            return_document=ReturnDocument.AFTER,  # Return the document after update
+        )
+
+        if result and "_id" in result:
+            result["_id"] = str(result["_id"])  # Convert ObjectId to str
+
+        return result
+
+    def bulk_update(self, updates: List[Dict]):
+        operations = [UpdateOne(u["filter"], u["update"]) for u in updates]
+        self._collection_instance.bulk_write(operations)
+
+    def delete_one(self, filter: Dict[str, Any]):
+        self._collection_instance.delete_one(filter)
